@@ -1,0 +1,205 @@
+\documentclass[manuscript,review]{acmart}
+
+\usepackage{booktabs}
+\usepackage{tabularx}
+
+%% Course checkpoint: no copyright block or ACM reference format needed yet.
+\setcopyright{none}
+\settopmatter{printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\acmConference[CS567 '26]{CS567: Agentic-AI Human-Centered Computing}{Fall 2026}{Fort Collins, CO, USA}
+
+\setlength{\emergencystretch}{1.5em}
+\begin{document}
+
+\title{Knowing When to Interrupt: Threshold, a Proactive Agentic Tutor for CS1 Debugging}
+
+\author{Samuel Abdullahi Abeeb}
+\affiliation{%
+  \department{Department of Computer Science}
+  \institution{Colorado State University}
+  \city{Fort Collins}
+  \state{Colorado}
+  \country{USA}}
+\email{abeeb.abdullahi@colostate.edu}
+
+\renewcommand{\shortauthors}{Abdullahi Abeeb}
+
+\begin{abstract}
+Large language models (LLMs) can solve most introductory programming (CS1) exercises, so a growing set of tutors restrict what the model says, offering hints instead of solution code. These tutors still wait for the student to ask for help. Yet novices often seek help ineffectively, and deciding when a struggling learner should receive help is a long-standing problem known as the assistance dilemma. We present Threshold, an agentic tutor for novice Python programmers that monitors execution events, detects when a student is repeatedly failing on the same runtime error, and opens a Socratic dialogue without being asked. Threshold reads the student's code to decide when and where to intervene, but its responses are limited to questions and conceptual hints. We describe a within-subjects study with 16 participants that isolates the effect of initiative: participants debugged two matched tasks with the same Socratic agent, which either initiated help on its own (proactive condition) or waited for a help request (on-request control condition). The primary outcome is performance on an unassisted transfer task; secondary outcomes are time-to-fix and perceived workload.
+\end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+ <concept>
+  <concept_id>10003120.10003121.10003129</concept_id>
+  <concept_desc>Human-centered computing~Interactive systems and tools</concept_desc>
+  <concept_significance>500</concept_significance>
+ </concept>
+ <concept>
+  <concept_id>10003456.10003457.10003527</concept_id>
+  <concept_desc>Social and professional topics~Computing education</concept_desc>
+  <concept_significance>500</concept_significance>
+ </concept>
+</ccs2012>
+\end{CCSXML}
+\ccsdesc[500]{Human-centered computing~Interactive systems and tools}
+\ccsdesc[500]{Social and professional topics~Computing education}
+
+\keywords{Agentic AI, mixed-initiative interaction, proactive tutoring, assistance dilemma, productive failure, CS1, novice programmers, debugging}
+
+\maketitle
+
+%% ==================================================================
+\section{Introduction}
+Code-generating models can produce correct solutions to many typical introductory programming problems, which has raised concerns about student over-reliance~\cite{denny2024era}. A scoping review of 38 empirical studies of LLM use in CS1 found that balancing AI support against the development of foundational reasoning, the assistance dilemma, is a central tension for educators~\cite{aruleba2025scoping}. One response has been to build tutors with guardrails that withhold solution code and offer guidance instead~\cite{liffiton2023codehelp,bassner2024iris,kazemitabaar2024codeaid}. Our research group followed this path with Drona, a retrieval-augmented coding companion that gives conceptual hints and has no access to the student's code~\cite{deoraj2025guiding}.
+
+These tutors share one design assumption: help begins when the student asks for it. Evidence suggests this assumption does not hold well for novices. When students used an LLM-powered assistant over a semester, most requests sought immediate help with assignments, and students often gave the tool minimal information about their problem~\cite{sheese2024patterns}. In a logic tutor, a policy that offered help proactively reduced help avoidance compared with a control condition~\cite{maniktala2020helpneed}. At the same time, not all struggle should be interrupted. Students who struggle with a problem before instruction can learn more deeply than students who are guided from the start~\cite{kapur2012variance}.
+
+This paper presents Threshold, an agentic tutor that decides for itself when to help. Threshold watches a novice's run history, detects when the same runtime error keeps recurring without progress, and responds with a Socratic question about the specific error and code region. It never writes code for the student. Threshold is a new system built from scratch; it builds on the design of Drona but shares no code or course materials with it. Our research question is whether system-initiated help improves novices' ability to debug on their own, compared with the same help offered on request. Section~\ref{sec:related} situates Threshold in prior work, Section~\ref{sec:system} describes the system, and Section~\ref{sec:method} presents the study methodology.
+
+%% ==================================================================
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Generative AI in Introductory Programming}
+Denny et al.\ summarize evidence that code generation models solve typical introductory problems well, and discuss both risks and opportunities for CS1~\cite{denny2024era}. On the risk side, they warn that relying too heavily on code generation tools may hinder the development of metacognitive skills. On the design side, they note that novices who over-use code generators encounter fewer errors but appear ill-equipped to handle the errors they do see. They conclude that tools must be designed to help users through the error feedback loop, and they call for guardrails so that generated output supports learning without immediately revealing solutions~\cite{denny2024era}. Aruleba et al.\ reach a compatible conclusion from the empirical literature. Their scoping review screened 1,383 records from four databases down to 38 empirical studies of LLMs in CS1, and identified four themes: student strategies, educator roles, ethics and equity, and pedagogical tensions centered on the assistance dilemma~\cite{aruleba2025scoping}. Both works frame the design question this project addresses: not whether novices will use AI while programming, but how AI help should be structured so that students still learn to debug.
+
+\subsection{Guardrailed LLM Tutors}
+Several systems restrict what the model will say. CodeHelp uses a pipeline of prompts to give on-demand help without revealing solutions. It was deployed for 12 weeks in a first-year computer and data science course with 52 students; students especially valued its availability and its help resolving errors, and the instructor found that it complemented rather than replaced human support~\cite{liffiton2023codehelp}. A follow-up analysis of more than 2,500 queries from the same deployment found that most requests asked for immediate help with assignments rather than conceptual understanding, that students often supplied minimal information, and that more successful students used the tool more~\cite{sheese2024patterns}. CourseAssist combines retrieval-augmented generation, intent classification, and question decomposition to align answers with course materials. Evaluated against GPT-4 on 50 question-answer pairs, it outperformed the baseline on usefulness, accuracy, and pedagogical appropriateness, and interviews with 20 of its more than 500 users reported faster feedback on assignments~\cite{feng2024courseassist}. Iris, integrated into the Artemis learning platform, gives calibrated assistance through hints and counter-questions rather than complete solutions; a student survey found that students valued its immediate support and saw it as a complement to human tutors~\cite{bassner2024iris}. CodeAid, deployed to about 700 students for a semester, answers conceptual questions, produces explained pseudo-code, and annotates incorrect code without revealing solution code; educators valued its approach but raised concerns about occasional incorrect feedback and students defaulting to ChatGPT~\cite{kazemitabaar2024codeaid}.
+
+These evaluations differ in method, from classroom deployments~\cite{liffiton2023codehelp,kazemitabaar2024codeaid} to answer-quality benchmarks and surveys~\cite{feng2024courseassist,bassner2024iris}, and most measure usage or perception rather than learning. More importantly for this project, all four systems are reactive: the student decides when to ask. Sheese et al.'s finding that students often send low-information requests~\cite{sheese2024patterns} suggests that leaving initiative entirely to the novice limits what a guardrailed tutor can do.
+
+\subsection{The Drona Line of Work}
+Threshold builds on prior work in our group. Kurivella et al.\ tested ChatGPT-4 on all 11 labs of a CS1 course, with two researchers acting as proxy students. They then redesigned the labs with flowcharts, real-world scenarios, and diagrams, and found that flowcharts were the most effective at hindering AI-generated solutions, while ChatGPT-4 could still solve the scenario and diagram versions~\cite{kurivella2025designing}. Because no students were tested, the authors note that prompt counts alone cannot establish that the redesigned labs increase critical thinking. Deoraj et al.\ then built Drona, which uses retrieval over lab instructions to give hints and deliberately has no access to student code. Their work-in-progress study enrolled 20 students; preliminary findings from six participants suggest that guided AI can reduce cognitive load and increase persistence, especially for less experienced students, and that usage varied by experience level in ways that indicate a need for more adaptive feedback~\cite{deoraj2025guiding}. Most recently, three CS1 instructors evaluated Drona positively, noting that some students may become frustrated when the tool declines to give answers, and identified adaptive tutoring as future work~\cite{abdullahi2026instructors}. Threshold pursues that direction. It also relaxes one of Drona's constraints: to decide when to intervene, Threshold reads the student's code and error history, while still limiting its output to questions and hints.
+
+\subsection{Productive Failure and the Assistance Dilemma}
+Kapur's work on productive failure shows that struggle can be valuable. In a study with ninth-grade mathematics students learning variance, students who first tried to generate solutions without guidance, and then received instruction, significantly outperformed students taught directly on conceptual understanding and transfer, without losing procedural fluency~\cite{kapur2012variance}. Deciding when and whether to provide such support is a well-known challenge called the assistance dilemma~\cite{maniktala2020helpneed}. Maniktala et al.\ addressed it in a logic-proof tutor with a data-driven HelpNeed predictor that classifies problem-solving steps as productive or unproductive. In a controlled study, an adaptive policy that gave proactive hints based on this predictor produced lower help avoidance and better posttest performance than the control~\cite{maniktala2020helpneed}. In programming, Poitras et al.\ studied the assistance dilemma with LLM code generators in an introductory course and found that learners who were less proficient at reading and writing code were more likely to seek AI assistance~\cite{poitras2024assistance}. These studies establish that the timing of help matters and can be estimated from student behavior. Maniktala et al.'s predictor, however, relies on prior student data in a well-structured logic domain, and its hints come from that data. Whether a similar approach works when the help itself is generated by an LLM, for novice programmers fixing runtime errors, remains untested.
+
+\subsection{Detecting Struggle and Timing Feedback}
+Signals of struggle in programming have long been derived from logged activity. Jadud studied novices' edit--compile cycles and proposed the error quotient, which scores how often consecutive compilations end in the same error; he also noted that it could be computed live and suggested automatic mechanisms to help students break out of repetitive error cycles~\cite{jadud2006methods}. Jadud computed the error quotient from logs of Java compilation errors; Threshold applies the underlying idea, repeated failure on the same error, as an online trigger for Python runtime errors. Evidence on timing also supports acting while students are working. In a randomized controlled trial with more than 8,000 students in an online CS1 course, students who received style feedback in real time were five times more likely to view and engage with it than students who received it after a delay. Students who viewed the feedback were also more likely to make significant style-related edits, and over 79\% of those edits directly incorporated the feedback~\cite{woodrow2024style}. That feedback addressed code style rather than stuck students, so it shows the value of timely help but not how to decide when a struggling student needs it.
+
+\subsection{Proactive AI Assistants for Programming}
+Proactive LLM assistants have recently appeared. Chen et al.\ built a chat-based programming assistant that uses the programmer's code and history to generate suggestions, including code implementations, and decides whether each suggestion is timely enough to show. A randomized study found significant benefits alongside nuances in how design choices affect use~\cite{chen2025needhelp}. That assistant targets productivity rather than learning, and supplying code is exactly what CS1 tutors are designed to avoid. SHARP is the closest system to Threshold. It pairs an adaptive hint scheduler, which infers an impasse when the time or the number of non-productive attempts since the last progress event exceeds a threshold, with a Socratic hint generator that avoids revealing code~\cite{wang2026sharp}. In a benchmark with an LLM acting as the student, SHARP achieved higher debugging success than baseline hinting strategies. In a pilot with 42 secondary-school students, students valued its agency-preserving hints, while about 15\% reported frustration with strictly indirect hints when they were severely stuck~\cite{wang2026sharp}. SHARP targets competitive programming, and its human pilot had no comparison condition. The Iris team has also announced plans to add proactive features that reach out to students when potential struggle is detected~\cite{tum2026iris}.
+
+\subsection{Positioning and Contribution}
+Table~\ref{tab:positioning} summarizes the closest systems. Guardrailed CS1 tutors withhold solution code but leave initiative to the student. Proactive assistants take initiative but either supply code~\cite{chen2025needhelp} or have not been compared against a request-only version of the same tutor~\cite{wang2026sharp}. Maniktala et al.\ compared proactive help with a control, but in a logic tutor with data-driven rather than LLM-generated hints~\cite{maniktala2020helpneed}.
+
+\begin{table*}[t]
+  \caption{Positioning of Threshold against closely related systems.}
+  \label{tab:positioning}
+  \small
+  \begin{tabularx}{\textwidth}{@{}llll>{\raggedright\arraybackslash}X@{}}
+    \toprule
+    System & Domain & Initiative & Solution code & Evaluation \\
+    \midrule
+    CodeHelp~\cite{liffiton2023codehelp,sheese2024patterns} & Intro programming & Student & No & 12-week deployment, 52 students; query analysis \\
+    CourseAssist~\cite{feng2024courseassist} & CS courses & Student & No & Benchmark vs.\ GPT-4; 20 interviews \\
+    Iris~\cite{bassner2024iris} & CS programming exercises & Student & No & Student survey \\
+    CodeAid~\cite{kazemitabaar2024codeaid} & Intro programming & Student & No & Semester deployment, $\sim$700 students \\
+    Drona~\cite{deoraj2025guiding} & CS1 labs & Student & No & WIP; preliminary results from 6 of 20 students \\
+    HelpNeed policy~\cite{maniktala2020helpneed} & Logic proofs & System & No (data-driven hints) & Controlled study vs.\ control \\
+    Chen et al.~\cite{chen2025needhelp} & Programming (productivity) & System & Yes & Randomized study of design variants \\
+    SHARP~\cite{wang2026sharp} & Competitive programming & System & No & LLM-simulated students; 42-student pilot, no control \\
+    \textbf{Threshold} & \textbf{CS1 debugging} & \textbf{System} & \textbf{No} & \textbf{Within-subjects, 16 students; proactive vs.\ on-request control, same agent} \\
+    \bottomrule
+  \end{tabularx}
+\end{table*}
+
+This work makes three contributions:
+\begin{enumerate}
+  \item \textbf{A proactive, guardrailed tutor for CS1 debugging.} Threshold combines the initiative of proactive assistants with the no-solution-code restraint of CS1 tutors, triggered by repeated runtime errors in novice Python programs.
+  \item \textbf{Observation separated from generation.} Unlike Drona, which withholds student code from the model~\cite{deoraj2025guiding}, Threshold reads code and error history to decide when and where to intervene, while its outputs remain limited to Socratic questions and conceptual hints.
+  \item \textbf{A controlled test of initiative.} The study holds the agent, prompts, model, and hints constant and varies only who starts the dialogue, with the on-request version of the same agent as the control. The primary outcome is an unassisted transfer task, which the trigger cannot influence directly.
+\end{enumerate}
+
+%% ==================================================================
+\section{The Threshold System}
+\label{sec:system}
+Threshold is a browser-based environment with a task description and code editor on one side and an agent panel on the other. It addresses interface issues that instructors reported for Drona by using a single run control and keeping the task description visible without scrolling~\cite{abdullahi2026instructors}.
+
+\paragraph{Execution and logging.} Student code runs in the browser using Pyodide, a WebAssembly build of Python~\cite{pyodide}. Running Python on the client means every run, its output, and any exception (type, message, and line number) are observable to the application without a round trip to a server. Each event is written to Cloud Firestore with a pseudonymous participant ID and timestamp: editor snapshots (debounced), run events and their results, and all agent events (detector triggers, messages shown, dismissals, and help-button presses).
+
+\paragraph{Struggle detector.} Threshold treats a student as \emph{thrashing} when the same exception type recurs at the same source line on three consecutive runs, or when the same unresolved exception persists for three minutes across at least two runs. These thresholds were tuned in pilot sessions and then fixed before data collection (Section~\ref{sec:tasks}). The detector applies the repeated-error idea behind Jadud's error quotient~\cite{jadud2006methods} online.
+
+\paragraph{Socratic agent.} When the detector fires in the proactive condition, or when the student presses the help button in the on-request condition, a LangChain agent uses tool calls to retrieve the relevant code region, recent run history, and a summary of the program's abstract syntax tree. It then generates a single Socratic question or conceptual hint about the specific failure, for example: ``Your list has five elements. On the last pass through the loop, what value does \texttt{i} have, and is that a valid index?'' Following CodeHelp's approach~\cite{liffiton2023codehelp}, every response is checked for code, and any response containing code is regenerated. The proactive prompt appears in the agent panel immediately after the failed run that triggered it, and the student can dismiss it.
+
+%% ==================================================================
+\section{Methodology}
+\label{sec:method}
+This section describes the study protocol in the past tense, as it will appear in the final report.\footnote{Data collection begins only after IRB approval. This section reports the planned protocol; participant demographics and results will be added once the study has been conducted.}
+
+\subsection{Research Questions and Hypotheses}
+\begin{description}
+  \item[RQ1] Does system-initiated Socratic help, compared with the same help offered on request, improve novices' ability to debug on their own?
+  \item[RQ2] Does system-initiated help change how quickly novices recover from errors and how much workload they perceive?
+  \item[RQ3] How do novices experience being interrupted by a tutor while debugging?
+\end{description}
+We tested three hypotheses, each comparing the proactive condition with the on-request control condition:
+\begin{description}
+  \item[H1] After the proactive condition, participants fix more bugs on the unassisted transfer task, and fix them faster (RQ1).
+  \item[H2] In the proactive condition, participants take less time from the first occurrence of an error to its resolution (RQ2).
+  \item[H3] After the proactive condition, participants report lower frustration on the NASA-TLX~\cite{hart1988tlx} (RQ2).
+\end{description}
+RQ3 was exploratory and was addressed through post-session interviews.
+
+\subsection{Study Design}
+\label{sec:design}
+The study used a within-subjects design with one independent variable, \emph{initiative}, at two levels:
+\begin{itemize}
+  \item \textbf{Proactive (treatment).} The agent opened the dialogue when the struggle detector fired. The help button also remained available.
+  \item \textbf{On-request (control).} The agent responded only when the participant pressed the help button.
+\end{itemize}
+The on-request condition served as the control. It is not a no-AI baseline: it is the same agent, with the same prompts and guardrail, used the way existing guardrailed tutors are used, where help begins when the student asks~\cite{liffiton2023codehelp,deoraj2025guiding}. Everything else was identical across conditions: the model, model version, prompts, generation parameters, tools, and output guardrail. The two conditions therefore differed only in who initiated help, so any difference between them can be attributed to initiative rather than to the model, content, or hint quality. In the control condition the detector still ran, silently, and its output was logged only for the manipulation check. Because each participant completed both conditions, each participant served as their own control.
+
+Each participant completed one task in each condition. We counterbalanced both the order of conditions and the pairing of tasks with conditions, giving four sequences: proactive first or control first, crossed with Task A first or Task B first. Participants were assigned to sequences in rotation, four per sequence.
+
+\subsection{Participants}
+Sixteen undergraduate students took part, four in each counterbalancing sequence. Sixteen exceeds the course minimum of 12 participants for a repeated-measures design and allowed each of the four sequences to be filled equally. Participants were eligible if they were enrolled in, or had completed, Colorado State University's introductory Python programming course. Students who had served as teaching assistants for that course were excluded, because their experience would exceed that of the target population. Participants were recruited through department email lists and announcements in introductory programming courses, made with the instructors' permission. Participation was voluntary and had no effect on course grades; any compensation followed the approved IRB protocol. A background questionnaire recorded each participant's prior programming experience and prior use of AI coding tools.
+
+\subsection{Tasks}
+\label{sec:tasks}
+We wrote two original debugging tasks, A and B, for this study; neither reused Drona materials or the course's labs. Each task was a short Python program of about 40--60 lines with a written specification and a small test suite. Each contained three seeded bugs from the same three runtime-error classes: an off-by-one loop bound that raised an \texttt{IndexError}, an incorrect dictionary access that raised a \texttt{KeyError}, and a string/integer mix-up that raised a \texttt{TypeError}. The two tasks used different cover stories but matched structure. Each task had a matching \emph{transfer item}: a shorter program with one bug from each of the same three classes, completed with the tutor turned off. Before data collection, pilot participants who were not part of the sample completed both tasks; their sessions were used to check that the tasks were comparable in difficulty and to fix the detector thresholds.
+
+\subsection{Procedure}
+Sessions were conducted one-on-one in a quiet room on a laptop running the Threshold environment in a web browser (Section~\ref{sec:system}); participants' code ran in the browser through Pyodide~\cite{pyodide}, and all events were logged to Cloud Firestore under a pseudonymous participant ID. Each session lasted about 80 minutes:
+\begin{enumerate}
+  \item \textbf{Consent and background} (about 5 min). Participants gave informed consent and completed the background questionnaire.
+  \item \textbf{Tutorial} (about 5 min). A practice program introduced the editor, the run button, the help button, and proactive prompts.
+  \item \textbf{Block 1} (about 30 min). Participants worked on their first task under their first condition for up to 20 minutes, completed the NASA-TLX, and then worked on the matching transfer item with the tutor off for up to 7 minutes.
+  \item \textbf{Block 2} (about 30 min). The same sequence followed with the other task and the other condition.
+  \item \textbf{Interview} (about 10 min). A semi-structured interview, audio-recorded with consent, asked about each condition and about the experience of being interrupted.
+\end{enumerate}
+
+\subsection{Measures}
+\begin{itemize}
+  \item \textbf{Primary outcomes.} (1) \emph{Transfer performance}: the number of the three transfer bugs fixed within the time limit (0--3), and the time taken to fix each one. (2) \emph{Final task correctness}: the proportion of tests passed at the end of each task. The transfer item was completed with the tutor turned off, so the detector could not affect it directly. Final task correctness reflects whether the assisted task was solved, not how often the participant was interrupted.
+  \item \textbf{Secondary outcomes.} (1) \emph{Time-to-fix}: for each seeded bug, the time from the first run that raised its error to the first run in which that error no longer occurred. (2) \emph{Workload}: raw NASA-TLX scores on its six subscales, with the frustration subscale as the focus of H3~\cite{hart1988tlx}.
+  \item \textbf{Manipulation check.} The number and duration of thrashing episodes per task, the number of proactive interventions shown, and the number of help-button presses. Thrashing episodes were expected to be shorter in the proactive condition; this measure confirms that the manipulation took effect, but is not evidence of learning.
+  \item \textbf{Process measures.} The dismissal rate of proactive prompts, and help-button use in each condition.
+  \item \textbf{Qualitative data.} Interview transcripts, addressing RQ3.
+\end{itemize}
+
+\subsection{Analysis}
+The study used a mixed-methods approach~\cite{creswell2017mixed}. For participant-level outcomes, we compared the two conditions within participants using Wilcoxon signed-rank tests, which suit small samples and do not assume normally distributed differences, and we report medians, interquartile ranges, and effect sizes ($r$). For bug-level outcomes (whether each bug was fixed, and time-to-fix), we fit mixed-effects models with condition as a fixed effect and a random intercept for participant. Before pooling, we checked for effects of condition order and task. Because of the sample size, we treat the study as exploratory and emphasize effect sizes over significance testing. Two coders analyzed interview transcripts thematically and resolved disagreements through discussion.
+
+\subsection{Threats to Validity}
+\begin{itemize}
+  \item \textbf{Carryover.} Participants who received proactive questions first may have learned to question themselves in the second block. Counterbalancing distributed this effect across conditions, and we tested for an order-by-condition interaction.
+  \item \textbf{Task equivalence.} The tasks were matched by design and checked in pilot sessions, and the task-to-condition pairing was counterbalanced.
+  \item \textbf{Sample size and setting.} With 16 participants in a lab setting, results are exploratory and may not reflect classroom use.
+  \item \textbf{LLM variability.} Model outputs can vary between runs. We fixed the model version and generation parameters and logged every prompt and response.
+  \item \textbf{Detector accuracy.} The detector may fire while a student is still making progress, or miss a student who is stuck. We examined logged episodes and interview data for both kinds of error.
+\end{itemize}
+
+\subsection{Ethics}
+The study protocol was submitted to the Colorado State University Institutional Review Board with Dr.\ Marcia Moraes as principal investigator, and no data were collected before approval. All participants gave informed consent and could withdraw at any time. Data were stored under pseudonymous IDs in an access-restricted database, and code snapshots were used only for this research, never for grading.
+
+%% ==================================================================
+\section*{Use of Generative AI}
+Generative AI (Claude, Anthropic) was used to assist with drafting and editing portions of this paper, including the Related Work section, to identify and verify candidate references, and to format the bibliography and LaTeX source. The author reviewed and revised all AI-assisted text, checked each cited work, and takes full responsibility for the content.
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
+
+\end{document}
