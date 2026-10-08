@@ -8,4 +8,4 @@ Threshold is a tutor for novice Python programmers that detects when a student k
 - Paper (PDF, Checkpoint 2): [CS567-checkpoint-2.pdf](CS567-checkpoint-2.pdf)
 - Paper source: [main.tex](main.tex), [references.bib](references.bib)
 - Overleaf project: https://www.overleaf.com/read/rdnjthdwrshr#e38de7
-- Checkpoint 2 status video: PASTE_YOUTUBE_LINK_HERE
+- Checkpoint 2 status video: https://youtu.be/7FoTJFcG3IY
